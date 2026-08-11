@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>패밀리보드 - 가족 주간 스케줄러</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-title">🏡 패밀리보드</span>
+      <span class="brand-sub">바이브 Go</span>
+    </div>
+
+    <div class="week-nav">
+      <button id="prevWeekBtn" class="nav-btn" title="이전 주">◀</button>
+      <div class="week-label" id="weekLabel">-</div>
+      <button id="nextWeekBtn" class="nav-btn" title="다음 주">▶</button>
+      <button id="todayBtn" class="pill-btn">오늘로 이동</button>
+    </div>
+
+    <div class="mode-area">
+      <span id="modeLabel" class="mode-label">뷰어 모드</span>
+      <button id="modeToggleBtn" class="pill-btn accent">관리자 모드로 전환</button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="card mini-cal">
+        <div class="mini-cal-header">
+          <button id="miniPrevMonth" class="nav-btn small">◀</button>
+          <div id="miniMonthLabel" class="mini-month-label">-</div>
+          <button id="miniNextMonth" class="nav-btn small">▶</button>
+        </div>
+        <div class="mini-cal-weekdays">
+          <span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span><span class="sun">일</span>
+        </div>
+        <div id="miniCalGrid" class="mini-cal-grid"></div>
+      </div>
+
+      <div class="card member-filter">
+        <div class="card-title">구성원 보기</div>
+        <div id="memberFilterList" class="member-filter-list"></div>
+        <button id="manageMembersBtn" class="text-btn admin-only">+ 구성원 관리</button>
+      </div>
+
+      <div class="card legend">
+        <div class="card-title">안내</div>
+        <div class="legend-item"><span class="legend-swatch legend-free"></span> 비어있는 시간</div>
+        <div class="legend-item"><span class="legend-swatch legend-today"></span> 오늘</div>
+        <div class="legend-item"><span class="legend-swatch legend-past"></span> 지난 시간</div>
+        <div class="legend-item admin-only">블록 클릭: 수정/복사 · Ctrl+드래그: 복사</div>
+      </div>
+    </aside>
+
+    <button type="button" id="sidebarToggleBtn" class="sidebar-toggle-btn" title="사이드바 접기/펼치기">《</button>
+
+    <main class="board-area">
+      <div class="board-scroll" id="boardScroll">
+        <div class="board" id="board">
+          <div class="board-header" id="boardHeader"></div>
+          <div class="board-body" id="boardBody"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- 일정 등록/수정 모달 -->
+<div id="scheduleModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2 id="scheduleModalTitle">일정 등록</h2>
+    <form id="scheduleForm">
+      <label>구성원
+        <select id="fMember" required></select>
+      </label>
+      <label>날짜
+        <input type="date" id="fDate" required />
+      </label>
+      <div class="time-row">
+        <label>시작 시간
+          <select id="fStart" required></select>
+        </label>
+        <label>종료 시간
+          <select id="fEnd" required></select>
+        </label>
+      </div>
+      <p class="time-hint">그리드에서 시작 칸을 클릭하고(또는 드래그해서) 종료 칸을 클릭하면 시간이 자동으로 채워져요.</p>
+      <label>일정 내용
+        <input type="text" id="fTitle" maxlength="40" required placeholder="예: 축구 클럽" />
+      </label>
+      <label>메모 (선택)
+        <textarea id="fMemo" maxlength="200" rows="2" placeholder="예: 준비물 챙기기"></textarea>
+      </label>
+      <p class="form-error" id="scheduleFormError"></p>
+      <div class="modal-actions">
+        <button type="button" id="deleteScheduleBtn" class="danger-btn hidden">삭제</button>
+        <div class="spacer"></div>
+        <button type="button" id="cancelScheduleBtn" class="ghost-btn">취소</button>
+        <button type="submit" class="primary-btn">저장</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 구성원 관리 모달 -->
+<div id="memberModal" class="modal-backdrop hidden">
+  <div class="modal">
+    <h2>구성원 관리</h2>
+    <div id="memberManageList" class="member-manage-list"></div>
+    <form id="addMemberForm" class="add-member-form">
+      <input type="text" id="newMemberName" maxlength="10" placeholder="새 구성원 이름" required />
+      <button type="submit" class="primary-btn">추가</button>
+    </form>
+    <p class="form-error" id="memberFormError"></p>
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button type="button" id="closeMemberModalBtn" class="ghost-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<script src="holidays.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

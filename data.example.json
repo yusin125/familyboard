@@ -1,0 +1,44 @@
+{
+  "members": [
+    {
+      "id": "m1",
+      "name": "아빠",
+      "color": "#E3A542"
+    },
+    {
+      "id": "m2",
+      "name": "엄마",
+      "color": "#EE8B72"
+    },
+    {
+      "id": "m3",
+      "name": "첫째",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "m4",
+      "name": "둘째",
+      "color": "#6FAE8C"
+    }
+  ],
+  "schedules": [
+    {
+      "id": "sample1",
+      "memberId": "m1",
+      "date": "2026-08-10",
+      "start": "09:00",
+      "end": "18:00",
+      "title": "회사 출근",
+      "memo": ""
+    },
+    {
+      "id": "sample2",
+      "memberId": "m3",
+      "date": "2026-08-11",
+      "start": "13:30",
+      "end": "15:30",
+      "title": "수학학원",
+      "memo": ""
+    }
+  ]
+}

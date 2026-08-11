@@ -1,0 +1,13 @@
+{
+  "name": "familyboard",
+  "version": "1.0.0",
+  "description": "패밀리보드 - 가족 주간 스케줄러",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
