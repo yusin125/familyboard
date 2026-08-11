@@ -64,3 +64,9 @@ npm start
 ## 이번 범위에서 제외된 기능
 
 일정 반복 등록, 모바일/태블릿에서의 일정 입력·수정, 월간 캘린더 직접 편집, 공휴일 외부 API 연동, 로그인/회원가입, 웹소켓 실시간 동기화는 이번 스케줄러 범위에 포함되지 않습니다.
+
+## Vercel 배포
+
+- 로컬 개발(`npm start`)에서는 그대로 `data.json` 파일을 사용합니다.
+- Vercel에 배포된 환경(서버리스 함수)은 파일 저장이 지속되지 않기 때문에 Redis(Upstash, Vercel Marketplace의 "Upstash Redis" 통합)에 데이터를 저장합니다. `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` (또는 구 Vercel KV 호환 `KV_REST_API_URL` / `KV_REST_API_TOKEN`) 환경변수가 설정되어 있으면 자동으로 Redis를 사용하고, 없으면 파일을 사용합니다.
+- 데이터 저장 로직은 `lib/db.js`, 서버리스 진입점은 `api/index.js`, 라우팅 설정은 `vercel.json`에 있습니다.

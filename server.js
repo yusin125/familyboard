@@ -1,38 +1,15 @@
+require('express-async-errors');
 const express = require('express');
-const fs = require('fs');
-const fsp = fs.promises;
 const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
+const { readData, saveData } = require('./lib/db');
 
 const PORT = process.env.PORT || 3000;
-const DATA_PATH = path.join(__dirname, 'data.json');
-const DATA_EXAMPLE_PATH = path.join(__dirname, 'data.example.json');
 
 const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// ---- 데이터 저장소 (JSON 파일 기반, 쓰기 요청은 순차 처리) ----
-let writeChain = Promise.resolve();
-
-// data.json은 실제 가족 일정이 담기는 파일이라 저장소에 커밋하지 않는다(.gitignore).
-// 처음 실행해 파일이 없으면 예시 데이터(data.example.json)로 만들어준다.
-if (!fs.existsSync(DATA_PATH) && fs.existsSync(DATA_EXAMPLE_PATH)) {
-  fs.copyFileSync(DATA_EXAMPLE_PATH, DATA_PATH);
-}
-
-function readData() {
-  const raw = fs.readFileSync(DATA_PATH, 'utf-8');
-  return JSON.parse(raw);
-}
-
-function saveData(data) {
-  writeChain = writeChain.then(() =>
-    fsp.writeFile(DATA_PATH, JSON.stringify(data, null, 2), 'utf-8')
-  );
-  return writeChain;
-}
 
 function newId() {
   return crypto.randomBytes(6).toString('hex');
@@ -56,51 +33,53 @@ function pickColor(existingMembers) {
 }
 
 // ---------- 구성원 API ----------
-app.get('/api/members', (req, res) => {
-  const data = readData();
+app.get('/api/members', async (req, res) => {
+  const data = await readData();
   res.json(data.members);
 });
 
-app.post('/api/members', (req, res) => {
+app.post('/api/members', async (req, res) => {
   const { name, color } = req.body;
   if (!name || !name.trim()) {
     return res.status(400).json({ error: '이름을 입력해주세요.' });
   }
-  const data = readData();
+  const data = await readData();
   const member = {
     id: newId(),
     name: name.trim(),
     color: color || pickColor(data.members)
   };
   data.members.push(member);
-  saveData(data);
+  await saveData(data);
   res.status(201).json(member);
 });
 
-app.put('/api/members/:id', (req, res) => {
-  const data = readData();
+app.put('/api/members/:id', async (req, res) => {
+  const data = await readData();
   const member = data.members.find((m) => m.id === req.params.id);
   if (!member) return res.status(404).json({ error: '구성원을 찾을 수 없습니다.' });
   const { name, color } = req.body;
   if (name && name.trim()) member.name = name.trim();
   if (color) member.color = color;
-  saveData(data);
+  await saveData(data);
   res.json(member);
 });
 
-app.delete('/api/members/:id', (req, res) => {
-  const data = readData();
+app.delete('/api/members/:id', async (req, res) => {
+  const data = await readData();
   const exists = data.members.some((m) => m.id === req.params.id);
   if (!exists) return res.status(404).json({ error: '구성원을 찾을 수 없습니다.' });
   data.members = data.members.filter((m) => m.id !== req.params.id);
   data.schedules = data.schedules.filter((s) => s.memberId !== req.params.id);
-  saveData(data);
+  data.recurringRules = data.recurringRules.filter((r) => r.memberId !== req.params.id);
+  data.memos = data.memos.filter((mo) => mo.memberId !== req.params.id);
+  await saveData(data);
   res.status(204).end();
 });
 
 // ---------- 일정 API ----------
-app.get('/api/schedules', (req, res) => {
-  const data = readData();
+app.get('/api/schedules', async (req, res) => {
+  const data = await readData();
   res.json(data.schedules);
 });
 
@@ -117,10 +96,10 @@ function validateSchedule(body) {
   return null;
 }
 
-app.post('/api/schedules', (req, res) => {
+app.post('/api/schedules', async (req, res) => {
   const err = validateSchedule(req.body);
   if (err) return res.status(400).json({ error: err });
-  const data = readData();
+  const data = await readData();
   if (!data.members.some((m) => m.id === req.body.memberId)) {
     return res.status(400).json({ error: '존재하지 않는 구성원입니다.' });
   }
@@ -134,12 +113,12 @@ app.post('/api/schedules', (req, res) => {
     memo: req.body.memo ? String(req.body.memo).trim() : ''
   };
   data.schedules.push(schedule);
-  saveData(data);
+  await saveData(data);
   res.status(201).json(schedule);
 });
 
-app.put('/api/schedules/:id', (req, res) => {
-  const data = readData();
+app.put('/api/schedules/:id', async (req, res) => {
+  const data = await readData();
   const schedule = data.schedules.find((s) => s.id === req.params.id);
   if (!schedule) return res.status(404).json({ error: '일정을 찾을 수 없습니다.' });
   const merged = { ...schedule, ...req.body };
@@ -153,16 +132,164 @@ app.put('/api/schedules/:id', (req, res) => {
     title: merged.title.trim(),
     memo: merged.memo ? String(merged.memo).trim() : ''
   });
-  saveData(data);
+  await saveData(data);
   res.json(schedule);
 });
 
-app.delete('/api/schedules/:id', (req, res) => {
-  const data = readData();
+app.delete('/api/schedules/:id', async (req, res) => {
+  const data = await readData();
   const exists = data.schedules.some((s) => s.id === req.params.id);
   if (!exists) return res.status(404).json({ error: '일정을 찾을 수 없습니다.' });
   data.schedules = data.schedules.filter((s) => s.id !== req.params.id);
-  saveData(data);
+  await saveData(data);
+  res.status(204).end();
+});
+
+// ---------- 반복 일정 API ----------
+// 반복 일정은 "규칙(rule)"과 그 규칙으로 생성된 실제 일정(schedules)을 함께 관리한다.
+// 규칙을 등록/수정하면 해당 기간·요일에 맞춰 개별 일정을 미리 생성해 저장해두므로,
+// 그리드에서는 일반 일정과 완전히 동일하게 조회/클릭/수정/삭제가 가능하다.
+// (규칙을 수정하면 그 규칙으로 생성됐던 기존 일정은 모두 지우고 새 조건으로 다시 생성한다)
+function noEndHorizon() {
+  const now = new Date();
+  return new Date(now.getFullYear() + 5, 11, 31); // 주간 이동 가능 범위(YEAR_MAX)와 동일하게 맞춘 상한
+}
+
+function generateRecurringSchedules(rule) {
+  const [sy, sm, sd] = rule.startDate.split('-').map(Number);
+  const start = new Date(sy, sm - 1, sd);
+  const end = rule.endDate
+    ? (() => { const [ey, em, ed] = rule.endDate.split('-').map(Number); return new Date(ey, em - 1, ed); })()
+    : noEndHorizon();
+  const daysSet = new Set(rule.daysOfWeek);
+  const results = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    if (daysSet.has(cur.getDay())) {
+      results.push({
+        id: newId(),
+        memberId: rule.memberId,
+        date: `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`,
+        start: rule.start,
+        end: rule.end,
+        title: rule.title,
+        memo: '',
+        recurringId: rule.id
+      });
+    }
+    cur.setDate(cur.getDate() + 1);
+  }
+  return results;
+}
+
+function validateRecurring(body) {
+  const { memberId, title, daysOfWeek, startDate, endDate, start, end } = body;
+  if (!memberId || !title || !title.trim()) return '구성원과 일정 제목은 필수입니다.';
+  if (!Array.isArray(daysOfWeek) || daysOfWeek.length === 0) return '반복 요일을 하나 이상 선택해주세요.';
+  if (daysOfWeek.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) return '반복 요일 값이 올바르지 않습니다.';
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || '')) return '시작 날짜 형식이 올바르지 않습니다.';
+  if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) return '종료 날짜 형식이 올바르지 않습니다.';
+  if (endDate && endDate < startDate) return '종료 날짜는 시작 날짜보다 빠를 수 없습니다.';
+  if (!/^\d{2}:\d{2}$/.test(start || '') || !/^\d{2}:\d{2}$/.test(end || '')) return '시간 형식이 올바르지 않습니다.';
+  if (start >= end) return '종료 시간은 시작 시간보다 늦어야 합니다.';
+  return null;
+}
+
+app.get('/api/recurring', async (req, res) => {
+  const data = await readData();
+  res.json(data.recurringRules);
+});
+
+app.post('/api/recurring', async (req, res) => {
+  const err = validateRecurring(req.body);
+  if (err) return res.status(400).json({ error: err });
+  const data = await readData();
+  if (!data.members.some((m) => m.id === req.body.memberId)) {
+    return res.status(400).json({ error: '존재하지 않는 구성원입니다.' });
+  }
+  const rule = {
+    id: newId(),
+    memberId: req.body.memberId,
+    title: req.body.title.trim(),
+    daysOfWeek: [...new Set(req.body.daysOfWeek)].sort((a, b) => a - b),
+    startDate: req.body.startDate,
+    endDate: req.body.endDate || null,
+    start: req.body.start,
+    end: req.body.end
+  };
+  data.recurringRules.push(rule);
+  data.schedules.push(...generateRecurringSchedules(rule));
+  await saveData(data);
+  res.status(201).json(rule);
+});
+
+app.put('/api/recurring/:id', async (req, res) => {
+  const data = await readData();
+  const rule = data.recurringRules.find((r) => r.id === req.params.id);
+  if (!rule) return res.status(404).json({ error: '반복 일정을 찾을 수 없습니다.' });
+  const merged = { ...rule, ...req.body };
+  const err = validateRecurring(merged);
+  if (err) return res.status(400).json({ error: err });
+  if (!data.members.some((m) => m.id === merged.memberId)) {
+    return res.status(400).json({ error: '존재하지 않는 구성원입니다.' });
+  }
+  Object.assign(rule, {
+    memberId: merged.memberId,
+    title: merged.title.trim(),
+    daysOfWeek: [...new Set(merged.daysOfWeek)].sort((a, b) => a - b),
+    startDate: merged.startDate,
+    endDate: merged.endDate || null,
+    start: merged.start,
+    end: merged.end
+  });
+  data.schedules = data.schedules.filter((s) => s.recurringId !== rule.id);
+  data.schedules.push(...generateRecurringSchedules(rule));
+  await saveData(data);
+  res.json(rule);
+});
+
+app.delete('/api/recurring/:id', async (req, res) => {
+  const data = await readData();
+  const exists = data.recurringRules.some((r) => r.id === req.params.id);
+  if (!exists) return res.status(404).json({ error: '반복 일정을 찾을 수 없습니다.' });
+  data.recurringRules = data.recurringRules.filter((r) => r.id !== req.params.id);
+  data.schedules = data.schedules.filter((s) => s.recurringId !== req.params.id);
+  await saveData(data);
+  res.status(204).end();
+});
+
+// ---------- 가족 메모보드 API (임시 기능: 추후 별도 게시판 기능으로 대체 예정) ----------
+app.get('/api/memos', async (req, res) => {
+  const data = await readData();
+  res.json(data.memos);
+});
+
+app.post('/api/memos', async (req, res) => {
+  const { memberId, text } = req.body;
+  if (!memberId || !text || !text.trim()) {
+    return res.status(400).json({ error: '작성자와 내용을 입력해주세요.' });
+  }
+  const data = await readData();
+  if (!data.members.some((m) => m.id === memberId)) {
+    return res.status(400).json({ error: '존재하지 않는 구성원입니다.' });
+  }
+  const memo = {
+    id: newId(),
+    memberId,
+    text: text.trim().slice(0, 200),
+    createdAt: new Date().toISOString()
+  };
+  data.memos.push(memo);
+  await saveData(data);
+  res.status(201).json(memo);
+});
+
+app.delete('/api/memos/:id', async (req, res) => {
+  const data = await readData();
+  const exists = data.memos.some((m) => m.id === req.params.id);
+  if (!exists) return res.status(404).json({ error: '메모를 찾을 수 없습니다.' });
+  data.memos = data.memos.filter((m) => m.id !== req.params.id);
+  await saveData(data);
   res.status(204).end();
 });
 
@@ -180,18 +307,30 @@ function getLocalIps() {
   return ips;
 }
 
-app.listen(PORT, () => {
-  console.log('='.repeat(60));
-  console.log(`패밀리보드 서버가 실행되었습니다. (포트: ${PORT})`);
-  console.log(`- 이 PC에서 접속:  http://localhost:${PORT}`);
-  const ips = getLocalIps();
-  if (ips.length > 0) {
-    ips.forEach((ip) => {
-      console.log(`- 같은 와이파이의 다른 기기(휴대폰/태블릿/TV)에서 접속하려면:`);
-      console.log(`    http://${ip}:${PORT}`);
-    });
-  } else {
-    console.log('- 같은 와이파이의 다른 기기에서 접속하려면 이 PC의 로컬 IP를 확인해주세요. (ipconfig)');
-  }
-  console.log('='.repeat(60));
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+  console.error(err);
+  res.status(500).json({ error: '서버 오류가 발생했습니다.' });
 });
+
+// Vercel 등 서버리스 환경에서는 이 파일을 require해서 요청마다 app을 호출할 뿐,
+// 직접 실행(node server.js)할 때만 포트를 열어 로컬 서버로 띄운다.
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log('='.repeat(60));
+    console.log(`패밀리보드 서버가 실행되었습니다. (포트: ${PORT})`);
+    console.log(`- 이 PC에서 접속:  http://localhost:${PORT}`);
+    const ips = getLocalIps();
+    if (ips.length > 0) {
+      ips.forEach((ip) => {
+        console.log(`- 같은 와이파이의 다른 기기(휴대폰/태블릿/TV)에서 접속하려면:`);
+        console.log(`    http://${ip}:${PORT}`);
+      });
+    } else {
+      console.log('- 같은 와이파이의 다른 기기에서 접속하려면 이 PC의 로컬 IP를 확인해주세요. (ipconfig)');
+    }
+    console.log('='.repeat(60));
+  });
+}
+
+module.exports = app;

@@ -25,8 +25,7 @@
     </div>
 
     <div class="mode-area">
-      <span id="modeLabel" class="mode-label">뷰어 모드</span>
-      <button id="modeToggleBtn" class="pill-btn accent">관리자 모드로 전환</button>
+      <button type="button" id="modeToggleBtn" class="mode-toggle-btn" title="클릭해서 관리자 모드/뷰어 모드 전환">관리자 모드</button>
     </div>
   </header>
 
@@ -50,12 +49,19 @@
         <button id="manageMembersBtn" class="text-btn admin-only">+ 구성원 관리</button>
       </div>
 
-      <div class="card legend">
-        <div class="card-title">안내</div>
-        <div class="legend-item"><span class="legend-swatch legend-free"></span> 비어있는 시간</div>
-        <div class="legend-item"><span class="legend-swatch legend-today"></span> 오늘</div>
-        <div class="legend-item"><span class="legend-swatch legend-past"></span> 지난 시간</div>
-        <div class="legend-item admin-only">블록 클릭: 수정/복사 · Ctrl+드래그: 복사</div>
+      <button type="button" id="manageRecurringBtn" class="sidebar-action-btn admin-only">🔁 반복 일정 관리</button>
+
+      <div class="card memo-board">
+        <div class="card-title">가족 메모보드</div>
+        <div id="memoList" class="memo-list"></div>
+        <form id="memoForm" class="memo-form">
+          <div class="memo-member-select-wrap">
+            <button type="button" id="memoMemberBtn" class="memo-dot-btn" title="작성자 선택"></button>
+            <div id="memoMemberDropdown" class="memo-member-dropdown hidden"></div>
+          </div>
+          <input type="text" id="memoText" maxlength="200" placeholder="메모를 남겨보세요" required />
+          <button type="submit" class="memo-send-btn" title="등록">➤</button>
+        </form>
       </div>
     </aside>
 
@@ -122,6 +128,58 @@
     <div class="modal-actions">
       <div class="spacer"></div>
       <button type="button" id="closeMemberModalBtn" class="ghost-btn">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 반복 일정 관리 모달 -->
+<div id="recurringModal" class="modal-backdrop hidden">
+  <div class="modal recurring-modal">
+    <h2>반복 일정 관리</h2>
+    <form id="recurringForm">
+      <label>구성원
+        <select id="rMember" required></select>
+      </label>
+      <label>일정 제목
+        <input type="text" id="rTitle" maxlength="40" required placeholder="예: 태권도 학원" />
+      </label>
+      <label>반복 요일
+        <div id="rDaysOfWeek" class="days-of-week-picker"></div>
+      </label>
+      <div class="time-row">
+        <label>시작 날짜
+          <input type="date" id="rStartDate" required />
+        </label>
+        <label>종료 날짜
+          <input type="date" id="rEndDate" required />
+        </label>
+      </div>
+      <label class="checkbox-label">
+        <input type="checkbox" id="rNoEnd" /> 종료 없음 (무기한)
+      </label>
+      <div class="time-row">
+        <label>시작 시간
+          <select id="rStart" required></select>
+        </label>
+        <label>종료 시간
+          <select id="rEnd" required></select>
+        </label>
+      </div>
+      <p class="form-error" id="recurringFormError"></p>
+      <div class="modal-actions">
+        <button type="button" id="cancelRecurringEditBtn" class="ghost-btn hidden">수정 취소</button>
+        <div class="spacer"></div>
+        <button type="submit" class="primary-btn" id="recurringSubmitBtn">추가</button>
+      </div>
+    </form>
+
+    <hr class="modal-divider" />
+
+    <div id="recurringList" class="recurring-list"></div>
+
+    <div class="modal-actions">
+      <div class="spacer"></div>
+      <button type="button" id="closeRecurringModalBtn" class="ghost-btn">닫기</button>
     </div>
   </div>
 </div>

@@ -81,10 +81,14 @@
     mode: 'viewer',
     members: [],
     schedules: [],
+    recurringRules: [],
+    memos: [],
+    selectedMemoMemberId: null,
     selectedMemberIds: new Set(),
     weekStart: mondayOf(TODAY_REAL),
     miniCalMonth: { year: TODAY_REAL.getFullYear(), month: TODAY_REAL.getMonth() },
     editingScheduleId: null,
+    editingRecurringId: null,
     sidebarCollapsed: false
   };
   const knownMemberIds = new Set();
@@ -95,7 +99,6 @@
   const prevWeekBtn = $('prevWeekBtn');
   const nextWeekBtn = $('nextWeekBtn');
   const todayBtn = $('todayBtn');
-  const modeLabel = $('modeLabel');
   const modeToggleBtn = $('modeToggleBtn');
   const miniMonthLabel = $('miniMonthLabel');
   const miniCalGrid = $('miniCalGrid');
@@ -129,6 +132,32 @@
   const memberFormError = $('memberFormError');
   const closeMemberModalBtn = $('closeMemberModalBtn');
 
+  const manageRecurringBtn = $('manageRecurringBtn');
+  const recurringModal = $('recurringModal');
+  const recurringForm = $('recurringForm');
+  const rMember = $('rMember');
+  const rTitle = $('rTitle');
+  const rDaysOfWeek = $('rDaysOfWeek');
+  const rStartDate = $('rStartDate');
+  const rEndDate = $('rEndDate');
+  const rNoEnd = $('rNoEnd');
+  const rStart = $('rStart');
+  const rEnd = $('rEnd');
+  const recurringFormError = $('recurringFormError');
+  const recurringSubmitBtn = $('recurringSubmitBtn');
+  const cancelRecurringEditBtn = $('cancelRecurringEditBtn');
+  const recurringList = $('recurringList');
+  const closeRecurringModalBtn = $('closeRecurringModalBtn');
+
+  const memoList = $('memoList');
+  const memoForm = $('memoForm');
+  const memoMemberBtn = $('memoMemberBtn');
+  const memoMemberDropdown = $('memoMemberDropdown');
+  const memoText = $('memoText');
+
+  const DOW_LABELS = ['일', '월', '화', '수', '목', '금', '토']; // index = Date#getDay()
+  const DOW_DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0]; // 월~일 순으로 표시
+
   // ---------- API ----------
   async function apiGet(path) {
     const r = await fetch(path);
@@ -153,8 +182,8 @@
   function renderModeUI() {
     const isAdmin = state.mode === 'admin';
     document.body.classList.toggle('mode-admin', isAdmin);
-    modeLabel.textContent = isAdmin ? '관리자 모드' : '뷰어 모드';
-    modeToggleBtn.textContent = isAdmin ? '뷰어 모드로 전환' : '관리자 모드로 전환';
+    modeToggleBtn.classList.toggle('active', isAdmin);
+    modeToggleBtn.setAttribute('aria-pressed', String(isAdmin));
   }
 
   function renderWeekNav() {
@@ -196,6 +225,7 @@
   }
 
   function renderMemberFilter() {
+    renderMemoMemberPicker();
     memberFilterList.innerHTML = '';
     state.members.forEach((m) => {
       const row = el('label', 'member-filter-item');
@@ -205,7 +235,7 @@
       cb.checked = state.selectedMemberIds.has(m.id);
       const swatch = el('span', 'member-swatch');
       swatch.style.background = m.color;
-      const name = el('span', null, m.name);
+      const name = el('span', 'member-filter-name', m.name);
       row.appendChild(cb);
       row.appendChild(swatch);
       row.appendChild(name);
@@ -213,16 +243,21 @@
     });
   }
 
-  function renderScheduleFormMemberOptions() {
-    const prev = fMember.value;
-    fMember.innerHTML = '';
+  function populateMemberSelect(select) {
+    const prev = select.value;
+    select.innerHTML = '';
     state.members.forEach((m) => {
       const opt = document.createElement('option');
       opt.value = m.id;
       opt.textContent = m.name;
-      fMember.appendChild(opt);
+      select.appendChild(opt);
     });
-    if (prev) fMember.value = prev;
+    if (prev) select.value = prev;
+  }
+
+  function renderScheduleFormMemberOptions() {
+    populateMemberSelect(fMember);
+    populateMemberSelect(rMember);
   }
 
   // 시작/종료 시간 select는 그리드 칸(30분 단위)에 대응하는 값만 옵션으로 제공한다.
@@ -291,6 +326,223 @@
       row.appendChild(delBtn);
       memberManageList.appendChild(row);
     });
+  }
+
+  // ---------- 렌더링: 반복 일정 관리 모달 ----------
+  function buildDaysOfWeekPicker() {
+    rDaysOfWeek.innerHTML = '';
+    DOW_DISPLAY_ORDER.forEach((dow) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'dow-btn';
+      btn.dataset.dow = String(dow);
+      btn.textContent = DOW_LABELS[dow];
+      btn.addEventListener('click', () => btn.classList.toggle('active'));
+      rDaysOfWeek.appendChild(btn);
+    });
+  }
+
+  function getSelectedDaysOfWeek() {
+    return Array.from(rDaysOfWeek.querySelectorAll('.dow-btn.active')).map((b) => Number(b.dataset.dow));
+  }
+
+  function setSelectedDaysOfWeek(days) {
+    const set = new Set(days);
+    Array.from(rDaysOfWeek.querySelectorAll('.dow-btn')).forEach((b) => {
+      b.classList.toggle('active', set.has(Number(b.dataset.dow)));
+    });
+  }
+
+  function formatDaysOfWeek(days) {
+    const set = new Set(days);
+    return DOW_DISPLAY_ORDER.filter((d) => set.has(d)).map((d) => DOW_LABELS[d]).join('·');
+  }
+
+  function resetRecurringForm() {
+    state.editingRecurringId = null;
+    recurringForm.reset();
+    setSelectedDaysOfWeek([]);
+    rEndDate.disabled = false;
+    rEndDate.required = true;
+    recurringSubmitBtn.textContent = '추가';
+    cancelRecurringEditBtn.classList.add('hidden');
+    recurringFormError.textContent = '';
+  }
+
+  function fillRecurringFormForEdit(rule) {
+    state.editingRecurringId = rule.id;
+    rMember.value = rule.memberId;
+    rTitle.value = rule.title;
+    setSelectedDaysOfWeek(rule.daysOfWeek);
+    rStartDate.value = rule.startDate;
+    if (rule.endDate) {
+      rNoEnd.checked = false;
+      rEndDate.value = rule.endDate;
+      rEndDate.disabled = false;
+      rEndDate.required = true;
+    } else {
+      rNoEnd.checked = true;
+      rEndDate.value = '';
+      rEndDate.disabled = true;
+      rEndDate.required = false;
+    }
+    rStart.value = rule.start;
+    rEnd.value = rule.end;
+    recurringSubmitBtn.textContent = '수정 저장';
+    cancelRecurringEditBtn.classList.remove('hidden');
+    recurringFormError.textContent = '';
+  }
+
+  function renderRecurringList() {
+    recurringList.innerHTML = '';
+    if (state.recurringRules.length === 0) {
+      recurringList.appendChild(el('div', 'recurring-empty', '등록된 반복 일정이 없습니다.'));
+      return;
+    }
+    state.members.forEach((member) => {
+      const rules = state.recurringRules.filter((r) => r.memberId === member.id);
+      if (rules.length === 0) return;
+
+      const groupTitle = el('div', 'recurring-group-title');
+      const dot = el('span', 'member-swatch');
+      dot.style.background = member.color;
+      groupTitle.appendChild(dot);
+      groupTitle.appendChild(el('span', null, member.name));
+      recurringList.appendChild(groupTitle);
+
+      const ol = document.createElement('ol');
+      ol.className = 'recurring-items';
+      rules.forEach((rule, idx) => {
+        const li = document.createElement('li');
+        li.className = 'recurring-item';
+        const period = rule.endDate ? `${rule.startDate} ~ ${rule.endDate}` : `${rule.startDate} ~ 종료없음`;
+        const body = el(
+          'div',
+          'ri-body',
+          `${rule.title} · ${formatDaysOfWeek(rule.daysOfWeek)} · ${period} · ${rule.start}~${rule.end}`
+        );
+        const editBtn = document.createElement('button');
+        editBtn.type = 'button';
+        editBtn.className = 'small-icon-btn';
+        editBtn.textContent = '✎';
+        editBtn.title = '수정';
+        editBtn.addEventListener('click', () => fillRecurringFormForEdit(rule));
+        const delBtn = document.createElement('button');
+        delBtn.type = 'button';
+        delBtn.className = 'small-icon-btn';
+        delBtn.textContent = '✕';
+        delBtn.title = '삭제';
+        delBtn.addEventListener('click', async () => {
+          if (!confirm(`'${rule.title}' 반복 일정을 삭제하면 이 규칙으로 생성된 모든 일정도 함께 삭제됩니다. 계속할까요?`)) return;
+          try {
+            await apiSend('DELETE', `/api/recurring/${rule.id}`);
+            if (state.editingRecurringId === rule.id) resetRecurringForm();
+            await refreshRecurring();
+            await refreshSchedules();
+          } catch (err) {
+            recurringFormError.textContent = err.error || '삭제에 실패했습니다.';
+          }
+        });
+        li.appendChild(el('span', 'ri-num', `${idx + 1}.`));
+        li.appendChild(body);
+        li.appendChild(editBtn);
+        li.appendChild(delBtn);
+        ol.appendChild(li);
+      });
+      recurringList.appendChild(ol);
+    });
+  }
+
+  async function refreshRecurring() {
+    state.recurringRules = await apiGet('/api/recurring');
+    renderRecurringList();
+  }
+
+  function openRecurringModal() {
+    resetRecurringForm();
+    renderScheduleFormMemberOptions();
+    renderRecurringList();
+    recurringModal.classList.remove('hidden');
+  }
+  function closeRecurringModal() {
+    recurringModal.classList.add('hidden');
+    resetRecurringForm();
+  }
+
+  // ---------- 렌더링: 가족 메모보드 (임시 기능) ----------
+  // 작성자는 이름 텍스트 없이 구성원 필터와 같은 색상 점 아이콘만으로 구분한다(공간 절약).
+  // 입력줄에는 현재 선택된 구성원의 점 1개만 버튼으로 보이고, 클릭하면 나머지 구성원을 고르는
+  // 작은 팝업이 뜬다(채팅 앱의 입력줄처럼 한 줄에 [작성자 점]+[입력창]+[전송]이 들어가게 하기 위함).
+  function closeMemoMemberDropdown() {
+    memoMemberDropdown.classList.add('hidden');
+  }
+
+  function renderMemoMemberPicker() {
+    const existingIds = new Set(state.members.map((m) => m.id));
+    if (!state.selectedMemoMemberId || !existingIds.has(state.selectedMemoMemberId)) {
+      state.selectedMemoMemberId = state.members.length > 0 ? state.members[0].id : null;
+    }
+
+    const selected = state.members.find((m) => m.id === state.selectedMemoMemberId);
+    memoMemberBtn.style.background = selected ? selected.color : '#ccc';
+    memoMemberBtn.title = selected ? selected.name : '작성자 선택';
+
+    memoMemberDropdown.innerHTML = '';
+    state.members.forEach((m) => {
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'memo-dot-option' + (m.id === state.selectedMemoMemberId ? ' active' : '');
+      opt.style.background = m.color;
+      opt.title = m.name;
+      opt.dataset.id = m.id;
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.selectedMemoMemberId = m.id;
+        closeMemoMemberDropdown();
+        renderMemoMemberPicker();
+      });
+      memoMemberDropdown.appendChild(opt);
+    });
+  }
+
+  function renderMemoBoard() {
+    memoList.innerHTML = '';
+    const sorted = [...state.memos].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    if (sorted.length === 0) {
+      memoList.appendChild(el('div', 'memo-empty', '아직 남긴 메모가 없어요.'));
+      return;
+    }
+    sorted.forEach((memo) => {
+      const member = state.members.find((m) => m.id === memo.memberId);
+      const row = el('div', 'memo-item');
+      const dot = el('span', 'member-swatch');
+      dot.style.background = member ? member.color : '#ccc';
+      dot.title = member ? member.name : '(알 수 없음)';
+      const text = el('span', 'memo-text', memo.text);
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'small-icon-btn memo-del-btn';
+      delBtn.textContent = '✕';
+      delBtn.title = '삭제';
+      delBtn.addEventListener('click', async () => {
+        if (!confirm('이 메모를 삭제할까요?')) return;
+        try {
+          await apiSend('DELETE', `/api/memos/${memo.id}`);
+          await refreshMemos();
+        } catch (err) {
+          alert(err.error || '삭제에 실패했습니다.');
+        }
+      });
+      row.appendChild(dot);
+      row.appendChild(text);
+      row.appendChild(delBtn);
+      memoList.appendChild(row);
+    });
+  }
+
+  async function refreshMemos() {
+    state.memos = await apiGet('/api/memos');
+    renderMemoBoard();
   }
 
   // ---------- 렌더링: 보드(그리드) ----------
@@ -478,6 +730,8 @@
     const nowSlotFloat = ((now.getHours() - START_HOUR) * 60 + now.getMinutes()) / SLOT_MIN;
     const nowSlot = Math.floor(nowSlotFloat);
 
+    let todayGroupEl = null;
+
     days.forEach((day) => {
       const iso = toISODate(day);
       const isToday = iso === todayIso;
@@ -539,7 +793,35 @@
       });
 
       boardBody.appendChild(group);
+      if (isToday) todayGroupEl = group;
     });
+
+    // 현재 시각 가이드선: 오늘이 포함된 주를 볼 때만, 실제 현재 시각 기준으로 그린다.
+    // (매 렌더링마다 실제 시각으로 다시 계산되므로 폴링에 의해 주기적으로 최신 상태로 갱신된다)
+    const isCurrentWeek = days.some((d) => toISODate(d) === todayIso);
+    if (isCurrentWeek && nowSlotFloat >= 0 && nowSlotFloat <= TOTAL_SLOTS) {
+      const lineTop = nowSlotFloat * rowHeight;
+      const nowLine = el('div', 'now-line');
+      nowLine.style.top = lineTop + 'px';
+      boardBody.appendChild(nowLine);
+
+      const nowArrow = el('div', 'now-arrow', '▶');
+      nowArrow.style.top = lineTop + 'px';
+      timeCol.appendChild(nowArrow);
+
+      if (todayGroupEl) {
+        const todaySeg = el('div', 'now-line-today');
+        todaySeg.style.top = lineTop + 'px';
+        todaySeg.style.left = todayGroupEl.offsetLeft + 'px';
+        todaySeg.style.width = todayGroupEl.offsetWidth + 'px';
+        boardBody.appendChild(todaySeg);
+
+        const nowDot = el('div', 'now-dot');
+        nowDot.style.top = lineTop + 'px';
+        nowDot.style.left = todayGroupEl.offsetLeft + 'px';
+        boardBody.appendChild(nowDot);
+      }
+    }
   }
 
   function renderAll() {
@@ -843,6 +1125,9 @@
   function bindEvents() {
     buildTimeOptions(fStart, 0, TOTAL_SLOTS - 1); // 06:00~23:30 (시작 시간)
     buildTimeOptions(fEnd, 1, TOTAL_SLOTS); // 06:30~24:00 (종료 시간, 24:00 포함)
+    buildTimeOptions(rStart, 0, TOTAL_SLOTS - 1);
+    buildTimeOptions(rEnd, 1, TOTAL_SLOTS);
+    buildDaysOfWeekPicker();
 
     prevWeekBtn.addEventListener('click', () => {
       const newStart = addDays(state.weekStart, -7);
@@ -907,6 +1192,78 @@
     });
     closeMemberModalBtn.addEventListener('click', () => memberModal.classList.add('hidden'));
     memberModal.addEventListener('click', (e) => { if (e.target === memberModal) memberModal.classList.add('hidden'); });
+
+    manageRecurringBtn.addEventListener('click', openRecurringModal);
+    closeRecurringModalBtn.addEventListener('click', closeRecurringModal);
+    recurringModal.addEventListener('click', (e) => { if (e.target === recurringModal) closeRecurringModal(); });
+    cancelRecurringEditBtn.addEventListener('click', resetRecurringForm);
+
+    rNoEnd.addEventListener('change', () => {
+      rEndDate.disabled = rNoEnd.checked;
+      rEndDate.required = !rNoEnd.checked;
+      if (rNoEnd.checked) rEndDate.value = '';
+    });
+
+    recurringForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const daysOfWeek = getSelectedDaysOfWeek();
+      if (daysOfWeek.length === 0) {
+        recurringFormError.textContent = '반복 요일을 하나 이상 선택해주세요.';
+        return;
+      }
+      if (!rNoEnd.checked && (!rEndDate.value || rEndDate.value < rStartDate.value)) {
+        recurringFormError.textContent = '종료 날짜는 시작 날짜보다 빠를 수 없습니다.';
+        return;
+      }
+      if (!rStart.value || !rEnd.value || rStart.value >= rEnd.value) {
+        recurringFormError.textContent = '종료 시간은 시작 시간보다 늦어야 합니다.';
+        return;
+      }
+      const payload = {
+        memberId: rMember.value,
+        title: rTitle.value.trim(),
+        daysOfWeek,
+        startDate: rStartDate.value,
+        endDate: rNoEnd.checked ? null : rEndDate.value,
+        start: rStart.value,
+        end: rEnd.value
+      };
+      try {
+        if (state.editingRecurringId) {
+          await apiSend('PUT', `/api/recurring/${state.editingRecurringId}`, payload);
+        } else {
+          await apiSend('POST', '/api/recurring', payload);
+        }
+        resetRecurringForm();
+        await refreshRecurring();
+        await refreshSchedules();
+      } catch (err) {
+        recurringFormError.textContent = err.error || '저장에 실패했습니다.';
+      }
+    });
+
+    memoMemberBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      memoMemberDropdown.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+      if (!memoMemberDropdown.classList.contains('hidden') && !e.target.closest('.memo-member-select-wrap')) {
+        closeMemoMemberDropdown();
+      }
+    });
+
+    memoForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = memoText.value.trim();
+      if (!text || !state.selectedMemoMemberId) return;
+      try {
+        await apiSend('POST', '/api/memos', { memberId: state.selectedMemoMemberId, text });
+        memoText.value = '';
+        await refreshMemos();
+      } catch (err) {
+        alert(err.error || '메모 등록에 실패했습니다.');
+      }
+    });
 
     addMemberForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -1029,6 +1386,7 @@
       exitPasteMode();
       cancelDragCopy();
       closeBlockMenu();
+      closeMemoMemberDropdown();
     });
 
     window.addEventListener('resize', debounce(() => applyResponsiveLayout(), 200));
@@ -1037,9 +1395,16 @@
   function startPolling() {
     setInterval(async () => {
       try {
-        const [members, schedules] = await Promise.all([apiGet('/api/members'), apiGet('/api/schedules')]);
+        const [members, schedules, recurringRules, memos] = await Promise.all([
+          apiGet('/api/members'),
+          apiGet('/api/schedules'),
+          apiGet('/api/recurring'),
+          apiGet('/api/memos')
+        ]);
         state.members = members;
         state.schedules = schedules;
+        state.recurringRules = recurringRules;
+        state.memos = memos;
         const existingIds = new Set(state.members.map((m) => m.id));
         state.selectedMemberIds = new Set([...state.selectedMemberIds].filter((id) => existingIds.has(id)));
         state.members.forEach((m) => {
@@ -1050,6 +1415,8 @@
         });
         renderMemberFilter();
         applyResponsiveLayout();
+        renderMemoBoard();
+        if (!recurringModal.classList.contains('hidden')) renderRecurringList();
       } catch (err) {
         console.error('폴링 중 오류:', err);
       }
@@ -1058,9 +1425,16 @@
 
   async function init() {
     try {
-      const [members, schedules] = await Promise.all([apiGet('/api/members'), apiGet('/api/schedules')]);
+      const [members, schedules, recurringRules, memos] = await Promise.all([
+        apiGet('/api/members'),
+        apiGet('/api/schedules'),
+        apiGet('/api/recurring'),
+        apiGet('/api/memos')
+      ]);
       state.members = members;
       state.schedules = schedules;
+      state.recurringRules = recurringRules;
+      state.memos = memos;
       members.forEach((m) => knownMemberIds.add(m.id));
       state.selectedMemberIds = new Set(members.map((m) => m.id));
     } catch (err) {
@@ -1068,6 +1442,7 @@
     }
     bindEvents();
     renderAll();
+    renderMemoBoard();
     startPolling();
   }
 

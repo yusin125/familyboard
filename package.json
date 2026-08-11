@@ -8,6 +8,8 @@
   },
   "license": "MIT",
   "dependencies": {
-    "express": "^4.19.2"
+    "@upstash/redis": "^1.38.2",
+    "express": "^4.19.2",
+    "express-async-errors": "^3.1.1"
   }
 }
