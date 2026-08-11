@@ -1,0 +1,103 @@
+{
+  "members": [
+    {
+      "id": "m1",
+      "name": "아빠",
+      "color": "#E3A542"
+    },
+    {
+      "id": "m2",
+      "name": "엄마",
+      "color": "#EE8B72"
+    },
+    {
+      "id": "m3",
+      "name": "첫째",
+      "color": "#5B9BD5"
+    },
+    {
+      "id": "m4",
+      "name": "둘째",
+      "color": "#6FAE8C"
+    },
+    {
+      "id": "6ad333ae23f3",
+      "name": "셋째",
+      "color": "#C98BC9"
+    }
+  ],
+  "schedules": [
+    {
+      "id": "a883ff81f4de",
+      "memberId": "m3",
+      "date": "2026-08-11",
+      "start": "13:30",
+      "end": "15:30",
+      "title": "수학학원",
+      "memo": ""
+    },
+    {
+      "id": "8d598d2bf545",
+      "memberId": "m1",
+      "date": "2026-08-11",
+      "start": "07:00",
+      "end": "19:00",
+      "title": "근무",
+      "memo": ""
+    },
+    {
+      "id": "d0984cf1b91e",
+      "memberId": "m1",
+      "date": "2026-08-12",
+      "start": "17:00",
+      "end": "23:30",
+      "title": "근무",
+      "memo": ""
+    },
+    {
+      "id": "40cbfd37cf7c",
+      "memberId": "m1",
+      "date": "2026-08-13",
+      "start": "06:00",
+      "end": "09:00",
+      "title": "근무",
+      "memo": ""
+    },
+    {
+      "id": "92b4a6861581",
+      "memberId": "m1",
+      "date": "2026-08-13",
+      "start": "15:00",
+      "end": "17:30",
+      "title": "음성대회준비",
+      "memo": ""
+    },
+    {
+      "id": "0987280f3091",
+      "memberId": "m1",
+      "date": "2026-08-14",
+      "start": "06:00",
+      "end": "24:00",
+      "title": "음성대회",
+      "memo": ""
+    },
+    {
+      "id": "ace32061ff05",
+      "memberId": "m1",
+      "date": "2026-08-15",
+      "start": "06:00",
+      "end": "24:00",
+      "title": "음성대회",
+      "memo": ""
+    },
+    {
+      "id": "12b4df9fe46b",
+      "memberId": "m1",
+      "date": "2026-08-16",
+      "start": "06:00",
+      "end": "24:00",
+      "title": "음성대회",
+      "memo": ""
+    }
+  ]
+}
