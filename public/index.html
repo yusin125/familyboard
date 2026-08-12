@@ -24,7 +24,13 @@
       <button id="todayBtn" class="pill-btn">오늘로 이동</button>
     </div>
 
+    <div class="view-toggle viewer-only" id="viewToggle">
+      <button type="button" id="viewGridBtn" class="view-toggle-btn active">📋 시간표로 보기</button>
+      <button type="button" id="viewCalendarBtn" class="view-toggle-btn">📅 달력으로 보기</button>
+    </div>
+
     <div class="mode-area">
+      <button type="button" id="musicToggleBtn" class="pill-btn music-btn" title="배경음악 켜기/끄기">🎵 음악 켜기</button>
       <button type="button" id="modeToggleBtn" class="mode-toggle-btn" title="클릭해서 관리자 모드/뷰어 모드 전환">관리자 모드</button>
     </div>
   </header>
@@ -73,6 +79,13 @@
           <div class="board-header" id="boardHeader"></div>
           <div class="board-body" id="boardBody"></div>
         </div>
+      </div>
+      <div class="calendar-scroll hidden" id="calendarScroll">
+        <button type="button" id="calPrevBtn" class="cal-nav-arrow" title="이전 주">◀</button>
+        <div class="calendar-view-wrap">
+          <div class="calendar-view" id="calendarView"></div>
+        </div>
+        <button type="button" id="calNextBtn" class="cal-nav-arrow" title="다음 주">▶</button>
       </div>
     </main>
   </div>
@@ -185,6 +198,7 @@
 </div>
 
 <script src="holidays.js"></script>
+<script src="music.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

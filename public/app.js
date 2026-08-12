@@ -76,9 +76,34 @@
     };
   }
 
+  // 이름에 흔한 호칭이 포함되면 그에 맞는 캐릭터 이모지를 아바타로 쓰고, 없으면 이름 첫 글자를 쓴다.
+  // (가족 메모보드의 구성원 아바타 전용. 스케줄 그리드의 구성원 필터/일정 블록 색상 점에는 사용하지 않는다)
+  const AVATAR_RULES = [
+    [['할아버지', '할부지'], '👴'],
+    [['할머니', '할무니'], '👵'],
+    [['아빠', '아버지', '파파'], '👨'],
+    [['엄마', '어머니', '마마'], '👩'],
+    [['아들'], '👦'],
+    [['딸'], '👧'],
+    // 숫자 키캡 이모지(1️⃣ 등)는 그림 자체에 고유 배경색이 박혀 있어 구성원 색상 원과 겹쳐 보이므로,
+    // 일반 숫자 텍스트를 써서 원 배경이 구성원 고유 색상 그대로 보이게 한다.
+    [['첫째'], '1'],
+    [['둘째'], '2'],
+    [['셋째'], '3'],
+    [['넷째'], '4'],
+    [['다섯째'], '5']
+  ];
+  function memberAvatarContent(name) {
+    for (const [keywords, emoji] of AVATAR_RULES) {
+      if (keywords.some((k) => name.includes(k))) return emoji;
+    }
+    return name.slice(0, 1);
+  }
+
   // ---------- 상태 ----------
   const state = {
     mode: 'viewer',
+    viewMode: 'grid', // 'grid'(시간표) | 'calendar'(달력 카드) — 기본은 시간표. 관리자 모드에서는 항상 grid로 강제됨.
     members: [],
     schedules: [],
     recurringRules: [],
@@ -100,6 +125,7 @@
   const nextWeekBtn = $('nextWeekBtn');
   const todayBtn = $('todayBtn');
   const modeToggleBtn = $('modeToggleBtn');
+  const musicToggleBtn = $('musicToggleBtn');
   const miniMonthLabel = $('miniMonthLabel');
   const miniCalGrid = $('miniCalGrid');
   const miniPrevMonth = $('miniPrevMonth');
@@ -111,6 +137,13 @@
   const boardScroll = $('boardScroll');
   const boardHeader = $('boardHeader');
   const boardBody = $('boardBody');
+
+  const viewGridBtn = $('viewGridBtn');
+  const viewCalendarBtn = $('viewCalendarBtn');
+  const calendarScroll = $('calendarScroll');
+  const calendarView = $('calendarView');
+  const calPrevBtn = $('calPrevBtn');
+  const calNextBtn = $('calNextBtn');
 
   const scheduleModal = $('scheduleModal');
   const scheduleModalTitle = $('scheduleModalTitle');
@@ -190,8 +223,30 @@
     const start = state.weekStart;
     const end = addDays(start, 6);
     weekLabel.textContent = `${start.getFullYear()}년 ${start.getMonth() + 1}월 ${start.getDate()}일(월) ~ ${end.getMonth() + 1}월 ${end.getDate()}일(일)`;
-    prevWeekBtn.disabled = start <= MIN_WEEK_START;
-    nextWeekBtn.disabled = start >= MAX_WEEK_START;
+    const isFirst = start <= MIN_WEEK_START;
+    const isLast = start >= MAX_WEEK_START;
+    prevWeekBtn.disabled = isFirst;
+    nextWeekBtn.disabled = isLast;
+    calPrevBtn.disabled = isFirst;
+    calNextBtn.disabled = isLast;
+  }
+
+  // 상단 이전/다음 주 버튼과 달력 카드 뷰 양옆 화살표가 동일한 주 이동 로직을 공유한다.
+  function goToPrevWeek() {
+    const newStart = addDays(state.weekStart, -7);
+    if (newStart >= MIN_WEEK_START) {
+      state.weekStart = newStart;
+      state.miniCalMonth = { year: newStart.getFullYear(), month: newStart.getMonth() };
+      renderAll();
+    }
+  }
+  function goToNextWeek() {
+    const newStart = addDays(state.weekStart, 7);
+    if (newStart <= MAX_WEEK_START) {
+      state.weekStart = newStart;
+      state.miniCalMonth = { year: newStart.getFullYear(), month: newStart.getMonth() };
+      renderAll();
+    }
   }
 
   function renderMiniCal() {
@@ -485,6 +540,7 @@
 
     const selected = state.members.find((m) => m.id === state.selectedMemoMemberId);
     memoMemberBtn.style.background = selected ? selected.color : '#ccc';
+    memoMemberBtn.textContent = selected ? memberAvatarContent(selected.name) : '';
     memoMemberBtn.title = selected ? selected.name : '작성자 선택';
 
     memoMemberDropdown.innerHTML = '';
@@ -493,6 +549,7 @@
       opt.type = 'button';
       opt.className = 'memo-dot-option' + (m.id === state.selectedMemoMemberId ? ' active' : '');
       opt.style.background = m.color;
+      opt.textContent = memberAvatarContent(m.name);
       opt.title = m.name;
       opt.dataset.id = m.id;
       opt.addEventListener('click', (e) => {
@@ -515,7 +572,7 @@
     sorted.forEach((memo) => {
       const member = state.members.find((m) => m.id === memo.memberId);
       const row = el('div', 'memo-item');
-      const dot = el('span', 'member-swatch');
+      const dot = el('span', 'memo-avatar', member ? memberAvatarContent(member.name) : '?');
       dot.style.background = member ? member.color : '#ccc';
       dot.title = member ? member.name : '(알 수 없음)';
       const text = el('span', 'memo-text', memo.text);
@@ -619,9 +676,26 @@
     document.documentElement.style.setProperty('--row-height', rowHeight + 'px');
   }
 
+  function getEffectiveView() {
+    return state.mode === 'admin' ? 'grid' : state.viewMode;
+  }
+
+  // 관리자 모드는 시간대 클릭으로 일정을 등록/수정하므로 항상 시간표 그리드로 고정한다.
+  // 뷰어 모드에서는 state.viewMode(시간표/달력)를 그대로 따른다.
+  function updateViewModeUI() {
+    const effective = getEffectiveView();
+    boardScroll.classList.toggle('hidden', effective !== 'grid');
+    calendarScroll.classList.toggle('hidden', effective !== 'calendar');
+    viewGridBtn.classList.toggle('active', effective === 'grid');
+    viewCalendarBtn.classList.toggle('active', effective === 'calendar');
+  }
+
   function applyResponsiveLayout() {
+    // 보이는 컨테이너를 먼저 정해야 computeGridFit이 실제 표시 중인 그리드 크기를 잴 수 있다.
+    updateViewModeUI();
     computeGridFit();
     renderBoard();
+    renderCalendarView();
   }
 
   function computeBusySlots(schedules) {
@@ -822,6 +896,79 @@
         boardBody.appendChild(nowDot);
       }
     }
+  }
+
+  // ---------- 렌더링: 달력 카드 뷰 ----------
+  function buildDayCard(day, visibleMembers) {
+    const iso = toISODate(day);
+    const dow = ['일', '월', '화', '수', '목', '금', '토'][day.getDay()];
+    const holidayName = window.FB_HOLIDAYS[iso];
+    const isHoliday = !!holidayName || day.getDay() === 0;
+    const isSaturday = day.getDay() === 6;
+    const isToday = iso === toISODate(TODAY_REAL);
+
+    const card = el('div', 'day-card' + (isToday ? ' is-today' : ''));
+
+    const header = el('div', 'day-card-header');
+    const dateLine = el('div', 'day-card-date' + (isHoliday ? ' holiday' : '') + (isSaturday ? ' saturday' : ''));
+    dateLine.appendChild(el('span', null, `${day.getMonth() + 1}/${day.getDate()}`));
+    dateLine.appendChild(el('span', 'dow', `(${dow})`));
+    header.appendChild(dateLine);
+    if (holidayName) header.appendChild(el('div', 'day-card-holiday', holidayName));
+    card.appendChild(header);
+
+    const daySchedules = state.schedules
+      .filter((s) => s.date === iso && visibleMembers.some((m) => m.id === s.memberId))
+      .slice()
+      .sort((a, b) => a.start.localeCompare(b.start) || a.end.localeCompare(b.end));
+
+    const memberIdsWithSchedule = [...new Set(daySchedules.map((s) => s.memberId))];
+    const avatarsRow = el('div', 'day-card-avatars');
+    if (memberIdsWithSchedule.length === 0) {
+      avatarsRow.appendChild(el('span', 'day-card-no-schedule', '일정 없음'));
+    } else {
+      memberIdsWithSchedule.forEach((id) => {
+        const member = visibleMembers.find((m) => m.id === id);
+        if (!member) return;
+        const avatar = el('span', 'day-card-avatar', memberAvatarContent(member.name));
+        avatar.style.background = member.color;
+        avatar.title = member.name;
+        avatarsRow.appendChild(avatar);
+      });
+    }
+    card.appendChild(avatarsRow);
+
+    const previewBox = el('div', 'day-card-preview');
+    if (daySchedules.length === 0) {
+      previewBox.appendChild(el('div', 'card-preview-empty', '등록된 일정이 없어요'));
+    } else {
+      daySchedules.forEach((s) => {
+        const member = visibleMembers.find((m) => m.id === s.memberId);
+        const line = el('div', 'card-preview-item');
+        const avatar = el('span', 'day-card-preview-avatar', member ? memberAvatarContent(member.name) : '?');
+        avatar.style.background = member ? member.color : '#999';
+        avatar.title = member ? member.name : '알 수 없음';
+        line.appendChild(avatar);
+        line.appendChild(el('span', 'preview-time', `${s.start}~${s.end}`));
+        line.appendChild(el('span', 'preview-title', s.title));
+        previewBox.appendChild(line);
+      });
+    }
+    card.appendChild(previewBox);
+
+    return card;
+  }
+
+  function renderCalendarView() {
+    if (getEffectiveView() !== 'calendar') return;
+    const days = [...Array(7)].map((_, i) => addDays(state.weekStart, i));
+    const visibleMembers = state.members.filter((m) => state.selectedMemberIds.has(m.id));
+    calendarView.innerHTML = '';
+    if (visibleMembers.length === 0) {
+      calendarView.appendChild(el('div', 'empty-board-msg', '선택된 구성원이 없습니다. 왼쪽 사이드바에서 한 명 이상 선택하면 일정이 표시됩니다.'));
+      return;
+    }
+    days.forEach((day) => calendarView.appendChild(buildDayCard(day, visibleMembers)));
   }
 
   function renderAll() {
@@ -1122,6 +1269,21 @@
     renderBoard();
   }
 
+  // ----- 배경음악 -----
+  // 브라우저 자동재생 정책과도 맞고, 사용자가 원치 않으면 소리가 나지 않아야 하므로 버튼을
+  // 직접 눌렀을 때만 재생을 시작한다(페이지 진입/다른 클릭으로 자동 시작하지 않음).
+  function setMusicButtonPlaying(playing) {
+    musicToggleBtn.classList.toggle('playing', playing);
+    musicToggleBtn.textContent = playing ? '🎵 음악 끄기' : '🎵 음악 켜기';
+  }
+
+  function bindMusicEvents() {
+    musicToggleBtn.addEventListener('click', () => {
+      const playing = window.FB_MUSIC.toggle();
+      setMusicButtonPlaying(playing);
+    });
+  }
+
   function bindEvents() {
     buildTimeOptions(fStart, 0, TOTAL_SLOTS - 1); // 06:00~23:30 (시작 시간)
     buildTimeOptions(fEnd, 1, TOTAL_SLOTS); // 06:30~24:00 (종료 시간, 24:00 포함)
@@ -1129,22 +1291,10 @@
     buildTimeOptions(rEnd, 1, TOTAL_SLOTS);
     buildDaysOfWeekPicker();
 
-    prevWeekBtn.addEventListener('click', () => {
-      const newStart = addDays(state.weekStart, -7);
-      if (newStart >= MIN_WEEK_START) {
-        state.weekStart = newStart;
-        state.miniCalMonth = { year: newStart.getFullYear(), month: newStart.getMonth() };
-        renderAll();
-      }
-    });
-    nextWeekBtn.addEventListener('click', () => {
-      const newStart = addDays(state.weekStart, 7);
-      if (newStart <= MAX_WEEK_START) {
-        state.weekStart = newStart;
-        state.miniCalMonth = { year: newStart.getFullYear(), month: newStart.getMonth() };
-        renderAll();
-      }
-    });
+    prevWeekBtn.addEventListener('click', goToPrevWeek);
+    nextWeekBtn.addEventListener('click', goToNextWeek);
+    calPrevBtn.addEventListener('click', goToPrevWeek);
+    calNextBtn.addEventListener('click', goToNextWeek);
     todayBtn.addEventListener('click', () => {
       state.weekStart = mondayOf(TODAY_REAL);
       state.miniCalMonth = { year: TODAY_REAL.getFullYear(), month: TODAY_REAL.getMonth() };
@@ -1174,6 +1324,18 @@
         closeBlockMenu();
       }
       renderModeUI();
+      applyResponsiveLayout();
+    });
+
+    viewGridBtn.addEventListener('click', () => {
+      if (state.mode === 'admin') return;
+      state.viewMode = 'grid';
+      applyResponsiveLayout();
+    });
+    viewCalendarBtn.addEventListener('click', () => {
+      if (state.mode === 'admin') return;
+      state.viewMode = 'calendar';
+      applyResponsiveLayout();
     });
 
     memberFilterList.addEventListener('change', (e) => {
@@ -1441,6 +1603,7 @@
       alert('서버에서 데이터를 불러오지 못했습니다. 서버가 실행 중인지 확인해주세요.');
     }
     bindEvents();
+    bindMusicEvents();
     renderAll();
     renderMemoBoard();
     startPolling();

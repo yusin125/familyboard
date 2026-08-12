@@ -117,6 +117,33 @@ button {
 .pill-btn.accent:hover { background: var(--accent-strong); }
 
 .mode-area { display: flex; align-items: center; gap: 10px; }
+.music-btn.playing { background: var(--accent); color: white; border-color: var(--accent); }
+
+/* 관리자 모드에서는 시간대 클릭으로 일정을 등록/수정해야 하므로 항상 시간표 그리드로 고정되고,
+   뷰어 전용 UI(시간표/달력 전환 버튼)는 숨긴다. */
+body.mode-admin .viewer-only { display: none; }
+
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px;
+}
+.view-toggle-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 7px 14px;
+  border-radius: 999px;
+}
+.view-toggle-btn:hover { color: var(--text-strong); }
+.view-toggle-btn.active { background: var(--accent); color: white; }
 
 /* 모드 전환 버튼: 뷰어/관리자 모드를 하나의 토글 버튼으로 표현한다.
    꺼짐(뷰어 모드) = 옅은 색상 + 기본 굵기, 켜짐(관리자 모드) = 진한 색상 + 굵은 글씨로 한눈에 구분되게 한다. */
@@ -291,7 +318,19 @@ button {
   border-radius: 10px;
   background: var(--surface-alt);
 }
-.memo-item .member-swatch { flex: 0 0 auto; }
+.memo-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  color: white;
+  font-weight: 700;
+}
 .memo-text { flex: 1; min-width: 0; font-size: 13px; word-break: break-word; }
 .memo-del-btn { flex: 0 0 auto; width: 22px; height: 22px; font-size: 11px; }
 
@@ -301,12 +340,17 @@ button {
 
 .memo-member-select-wrap { position: relative; flex: 0 0 auto; }
 .memo-dot-btn {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   padding: 0;
   border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
 }
 .memo-dot-btn:hover { box-shadow: 0 0 0 2px var(--accent); }
 
@@ -325,12 +369,17 @@ button {
 }
 .memo-member-dropdown.hidden { display: none; }
 .memo-dot-option {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
   padding: 0;
   border: 2px solid var(--surface);
   box-shadow: 0 0 0 1px var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
 }
 .memo-dot-option:hover { box-shadow: 0 0 0 2px var(--accent); }
 .memo-dot-option.active { box-shadow: 0 0 0 2px var(--text-strong); }
@@ -375,7 +424,117 @@ body.mode-admin .admin-only { display: inline-block; }
   box-shadow: var(--shadow);
 }
 
+.board-scroll.hidden, .calendar-scroll.hidden { display: none; }
+
 .board { display: flex; flex-direction: column; width: max-content; min-width: 100%; }
+
+/* ---------- 달력 카드 뷰 ---------- */
+.calendar-scroll {
+  height: 100%;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px;
+}
+
+.calendar-view-wrap { flex: 1; min-width: 0; height: 100%; overflow: auto; }
+
+.calendar-view {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(128px, 1fr));
+  gap: 12px;
+  padding: 8px 4px 20px;
+}
+.calendar-view .empty-board-msg { grid-column: 1 / -1; }
+
+/* 주 단위 이동 화살표: 좁은 화면에서 가로 스크롤을 하지 않고도 양옆 화살표 클릭만으로
+   이전/다음 주로 넘어갈 수 있게 한다(상단 주간 이동 버튼과 동일 동작을 공유). */
+.cal-nav-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent-strong);
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+}
+.cal-nav-arrow:hover:not(:disabled) { background: var(--accent); color: white; }
+.cal-nav-arrow:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.day-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+.day-card.is-today { background: var(--today-bg); border-color: #e3c766; }
+
+.day-card-header { display: flex; flex-direction: column; gap: 4px; }
+.day-card-date {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-family: var(--font-num);
+  font-weight: 800;
+  font-size: 18px;
+}
+.day-card-date .dow { font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.day-card-date.holiday { color: var(--holiday-red); }
+.day-card-date.holiday .dow { color: var(--holiday-red); }
+.day-card-date.saturday { color: var(--saturday-blue); }
+.day-card-holiday {
+  align-self: flex-start;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffffff;
+  background: var(--holiday-red-strong);
+  padding: 2px 9px;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(179, 39, 29, 0.35);
+}
+
+.day-card-avatars { display: flex; flex-wrap: wrap; gap: 6px; min-height: 30px; }
+.day-card-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  flex: 0 0 auto;
+}
+.day-card-no-schedule { font-size: 12px; color: var(--text-muted); align-self: center; }
+
+.day-card-preview { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.card-preview-item { display: flex; align-items: center; gap: 6px; font-size: 12.5px; min-width: 0; }
+.day-card-preview-avatar {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+.preview-time { font-family: var(--font-num); font-weight: 700; color: var(--text-muted); flex: 0 0 auto; }
+.preview-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-preview-empty { font-size: 12px; color: var(--text-muted); }
 
 .board-header {
   position: sticky;
@@ -588,6 +747,15 @@ body.col-very-compact .schedule-block .sb-time { display: none; }
   .day-title .holiday-name { font-size: 13px; }
   .member-chip { font-size: 16px; }
   .time-label { font-size: 15px; }
+
+  .cal-nav-arrow { width: 52px; height: 52px; font-size: 20px; }
+  .calendar-view { grid-template-columns: repeat(7, minmax(160px, 1fr)); gap: 18px; }
+  .day-card { padding: 20px; border-radius: 22px; min-height: 280px; gap: 14px; }
+  .day-card-date { font-size: 24px; }
+  .day-card-date .dow { font-size: 16px; }
+  .day-card-holiday { font-size: 14px; padding: 3px 12px; }
+  .day-card-avatar { width: 40px; height: 40px; font-size: 20px; }
+  .view-toggle-btn { font-size: 15px; padding: 9px 18px; }
 }
 
 /* ---------- Modal ---------- */
