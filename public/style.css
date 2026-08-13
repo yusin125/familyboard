@@ -478,6 +478,25 @@ body.mode-admin .admin-only { display: inline-block; }
 }
 .day-card.is-today { background: var(--today-bg); border-color: #e3c766; }
 
+.day-card-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--accent-strong);
+  border-radius: 10px;
+  padding: 3px 4px;
+  margin: -3px -4px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.day-card-quote:hover { background: rgba(238, 139, 114, 0.12); }
+.quote-prompt { font-style: italic; font-weight: 600; opacity: 0.75; }
+.day-card-quote.revealed { opacity: 1; }
+.quote-line { font-style: italic; }
+.quote-hope { color: var(--text-muted); }
+
 .day-card-header { display: flex; flex-direction: column; gap: 4px; }
 .day-card-date {
   display: flex;
@@ -756,6 +775,7 @@ body.col-very-compact .schedule-block .sb-time { display: none; }
   .day-card-holiday { font-size: 14px; padding: 3px 12px; }
   .day-card-avatar { width: 40px; height: 40px; font-size: 20px; }
   .view-toggle-btn { font-size: 15px; padding: 9px 18px; }
+  .day-card-quote { font-size: 13px; }
 }
 
 /* ---------- Modal ---------- */

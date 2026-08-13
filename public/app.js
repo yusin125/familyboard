@@ -100,6 +100,86 @@
     return name.slice(0, 1);
   }
 
+  // 달력 카드 위에 하루 하나씩 표시할 짧은 한줄 문장. 같은 날짜는 항상 같은 문장이
+  // 나오도록(새로고침해도 안 바뀌도록) 날짜 문자열을 해시해서 고른다.
+  const DAILY_QUOTES = [
+    '오늘도 우리 가족, 참 잘 해내고 있어요',
+    '작은 웃음 하나가 하루를 따뜻하게 만들어요',
+    '함께라서 더 든든한 하루예요',
+    '고생한 나에게, 그리고 우리 가족에게 박수를',
+    '오늘 하루도 사랑으로 채워봐요',
+    '천천히 가도 괜찮아요, 함께니까',
+    '작은 것에도 감사할 수 있는 하루 되세요',
+    '오늘의 노력이 내일의 행복이 됩니다',
+    '가족은 서로의 가장 든든한 편이에요',
+    '웃는 얼굴로 하루를 시작해봐요',
+    '쉬어가는 것도 용기예요',
+    '오늘 하루, 나 자신을 꼭 안아주세요',
+    '우리 가족이 있어 오늘도 행복해요',
+    '따뜻한 말 한마디가 큰 힘이 됩니다',
+    '함께 먹는 밥 한 끼가 큰 행복이에요',
+    '오늘도 무사히, 감사한 하루였어요',
+    '서로에게 힘이 되어주는 우리가 되어요',
+    '작은 정성이 모여 큰 사랑이 됩니다',
+    '오늘 하루도 고생 많았어요',
+    '행복은 가까이에, 바로 우리 곁에 있어요',
+    '오늘의 나를 있는 그대로 응원해요',
+    '가족과 함께한 순간이 가장 빛나요',
+    '느려도 괜찮아요, 우리 속도대로 가요',
+    '오늘 하루도 사랑한다는 말, 잊지 마세요',
+    '작은 실수보다 큰 마음이 더 중요해요',
+    '함께 웃을 수 있어 감사한 하루예요',
+    '오늘도 우리 가족의 안녕을 바라요',
+    '포근한 하루 보내세요, 우리 가족',
+    '매일이 특별할 순 없어도 소중해요',
+    '오늘 하루도 응원합니다, 우리 가족'
+  ];
+  function quoteForDate(iso) {
+    let hash = 0;
+    for (let i = 0; i < iso.length; i++) hash = (hash * 31 + iso.charCodeAt(i)) >>> 0;
+    return DAILY_QUOTES[hash % DAILY_QUOTES.length];
+  }
+
+  // 힘이 나는 말과 짝을 이루는, 앞으로가 기대되고 행복해지는 말. 같은 날짜 해시 방식이지만
+  // 다른 계수를 써서 위 문장과 겹치지 않게 섞이도록 한다.
+  const HOPE_QUOTES = [
+    '내일은 오늘보다 더 좋은 일이 기다리고 있을 거예요',
+    '작은 설렘이 하루를 반짝이게 해줘요',
+    '곧 웃을 일이 생길 거예요, 기대해도 좋아요',
+    '우리 가족에게 좋은 일만 가득하길 바라요',
+    '오늘의 정성이 내일의 기쁨으로 돌아올 거예요',
+    '조금씩 나아지고 있어요, 그거면 충분해요',
+    '설레는 내일을 위해 오늘도 힘내봐요',
+    '행복은 예고 없이 찾아온다니, 오늘일지도 몰라요',
+    '우리 가족의 앞날에 따뜻한 햇살이 가득하길',
+    '지금 이 순간도, 앞으로도 다 잘될 거예요',
+    '작은 꿈들이 하나씩 이루어지는 요즘이길',
+    '내일 아침엔 더 산뜻한 기분으로 눈뜨길 바라요',
+    '기다리던 좋은 소식이 곧 도착할 거예요',
+    '오늘 심은 마음이 예쁜 열매로 자랄 거예요',
+    '우리 가족 모두 건강하고 즐거운 날들이 이어지길',
+    '내일이 기대되는 오늘을 보내고 있어요',
+    '작은 행운들이 하루 곳곳에 숨어 있을 거예요',
+    '곧 다가올 즐거운 시간을 미리 기대해봐요',
+    '이 하루 끝에는 포근한 쉼이 기다리고 있어요',
+    '앞으로의 우리 가족 이야기가 참 궁금하고 설레요',
+    '오늘의 수고가 내일의 미소가 되어 돌아올 거예요',
+    '조금만 더 가면 반가운 순간이 기다리고 있어요',
+    '우리에게 다가올 좋은 날들을 기대해도 좋아요',
+    '작은 바람들이 하나둘 이루어지는 한 해가 되길',
+    '내일은 오늘의 노력을 알아봐 줄 거예요',
+    '가까운 미래에 함박웃음 지을 일이 생길 거예요',
+    '오늘 밤엔 편안하게, 내일은 산뜻하게 시작해봐요',
+    '우리 가족에게 행복한 소식이 곧 들려올 거예요',
+    '기대해도 좋아요, 좋은 흐름이 이어지고 있어요',
+    '이 마음 그대로, 내일도 따뜻한 하루가 되길'
+  ];
+  function hopeQuoteForDate(iso) {
+    let hash = 0;
+    for (let i = 0; i < iso.length; i++) hash = (hash * 37 + iso.charCodeAt(i) + 7) >>> 0;
+    return HOPE_QUOTES[hash % HOPE_QUOTES.length];
+  }
+
   // ---------- 상태 ----------
   const state = {
     mode: 'viewer',
@@ -112,6 +192,7 @@
     selectedMemberIds: new Set(),
     weekStart: mondayOf(TODAY_REAL),
     miniCalMonth: { year: TODAY_REAL.getFullYear(), month: TODAY_REAL.getMonth() },
+    revealedQuoteDates: new Set(),
     editingScheduleId: null,
     editingRecurringId: null,
     sidebarCollapsed: false
@@ -909,6 +990,17 @@
 
     const card = el('div', 'day-card' + (isToday ? ' is-today' : ''));
 
+    const isRevealed = state.revealedQuoteDates.has(iso);
+    const quoteBox = el('div', 'day-card-quote' + (isRevealed ? ' revealed' : ''));
+    quoteBox.dataset.date = iso;
+    if (isRevealed) {
+      quoteBox.appendChild(el('div', 'quote-line quote-energy', `💪 ${quoteForDate(iso)}`));
+      quoteBox.appendChild(el('div', 'quote-line quote-hope', `🌈 ${hopeQuoteForDate(iso)}`));
+    } else {
+      quoteBox.appendChild(el('span', 'quote-prompt', '오늘의 말은? (클릭)'));
+    }
+    card.appendChild(quoteBox);
+
     const header = el('div', 'day-card-header');
     const dateLine = el('div', 'day-card-date' + (isHoliday ? ' holiday' : '') + (isSaturday ? ' saturday' : ''));
     dateLine.appendChild(el('span', null, `${day.getMonth() + 1}/${day.getDate()}`));
@@ -1336,6 +1428,16 @@
       if (state.mode === 'admin') return;
       state.viewMode = 'calendar';
       applyResponsiveLayout();
+    });
+
+    calendarView.addEventListener('click', (e) => {
+      const quoteBox = e.target.closest('.day-card-quote');
+      if (!quoteBox) return;
+      e.stopPropagation();
+      const iso = quoteBox.dataset.date;
+      if (state.revealedQuoteDates.has(iso)) state.revealedQuoteDates.delete(iso);
+      else state.revealedQuoteDates.add(iso);
+      renderCalendarView();
     });
 
     memberFilterList.addEventListener('change', (e) => {
